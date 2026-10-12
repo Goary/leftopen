@@ -56,9 +56,18 @@ internal static class Program
             Console.WriteLine("PASS: both broadcasts reach all three controlled recipients.");
             ClearEvents(dir);
 
-            Require(GenerateConsoleCtrlEvent(0, (uint)children[1].Id), "Ctrl+C nonzero group call");
+            // Real Windows behaviour (observed on Win10 19045, 2026-10): a group-targeted
+            // Ctrl+C IS delivered — to the group root AND its descendants — while a
+            // console-mate outside the group is spared. A group therefore includes
+            // processes LeftOpen did not create, which is exactly why production
+            // refuses every console control event.
+            Require(GenerateConsoleCtrlEvent(0, (uint)children[1].Id), "Ctrl+C group-targeted call");
             Thread.Sleep(500);
-            Require(!Directory.EnumerateFiles(dir, "*.event").Any(), "Ctrl+C does not target a group");
+            Require(Event(dir, children[1].Id, 0), "group root receives group-targeted Ctrl+C");
+            Require(Event(dir, descendantPid, 0), "group descendant receives group-targeted Ctrl+C");
+            Require(!Event(dir, children[0].Id, 0), "console mate outside the group does not receive it");
+            Console.WriteLine("PASS: group-targeted Ctrl+C reaches the group root and its descendant, sparing other console members.");
+            ClearEvents(dir);
             Require(GenerateConsoleCtrlEvent(1, (uint)children[1].Id), "Ctrl+Break group call");
             WaitFor(() => Event(dir, children[1].Id, 1) && Event(dir, descendantPid, 1));
             Thread.Sleep(300);
@@ -75,7 +84,11 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine(ex);
+            // After FreeConsole/AllocConsole the original stderr handle is dead and
+            // .NET silently drops Console.Error writes — also report on stdout so
+            // CI failures stay diagnosable.
+            Console.Out.WriteLine("PROBE FAILED: " + ex.Message);
+            try { Console.Error.WriteLine(ex); } catch { /* best effort */ }
             return 1;
         }
         finally
