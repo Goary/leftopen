@@ -33,7 +33,14 @@ powershell -File Scripts\publish.ps1
 
 # 发布自包含版本（目标机器无需安装 .NET，托盘约 158 MB——WinForms 不支持裁剪）
 powershell -File Scripts\publish.ps1 -SelfContained
+
+# 发布自包含"共享运行时"文件夹 + zip（约 67 MB，解压即用；CI 打包用的就是它）
+powershell -File Scripts\publish.ps1 -Shared
 ```
+
+## CI 与发布
+
+`.github/workflows/windows-ci.yml` 在每次改动 `windows/` 时自动运行：Release 构建 → 60 个单元测试 → 控制台安全探针 → 打出自包含 zip（`LeftOpen-windows-x64.zip`，解压即用、无需安装 .NET）并上传为构建产物。打 `windows-v*` 标签时，zip 会自动附加到 GitHub Release。
 
 ## 托盘应用
 

@@ -3,6 +3,7 @@ bin/
 obj/
 dist/
 dist-*/
+release/
 
 # 面板快照与图标校验产物（--snapshot / 人工验证生成的图片）
 panel-snapshot*.png
